@@ -1,9 +1,9 @@
 """
 MARS EXPLORER | NASA Hackathon 2026 | Gale Crater Mission Dashboard
-Run:  python -m streamlit run app.py
+Run: python -m streamlit run app.py
 
-One file that combines the elevation, slope, hazard, 3D and route previews,
-the MOLA metadata check and the region test into a single dashboard.
+Combines elevation, slope, hazard, 3D and route previews,
+the MOLA metadata check and the region test in a single dashboard.
 """
 import base64
 import csv
@@ -43,34 +43,69 @@ MOLA_XML = DATA_DIR / "elevation" / "mola" / "megt00n090hb.xml"
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 
 GALE_LAT, GALE_LON = -5.4, 137.8
-PPD = 128                      # MOLA pixels per degree
-TILE_LAT_MAX = 0.0             # tile megt00n090hb starts at the equator
-TILE_LON_MIN = 90.0            # and at 90 degrees east
+PPD = 128
+TILE_LAT_MAX = 0.0
+TILE_LON_MIN = 90.0
 MARS_RADIUS_M = 3_396_190.0
 
-# Two study areas. "stride" is how coarsely the route search samples the grid.
 AREAS = {
-    "Close-up (about 150 km wide)": {"kind": "window", "half": 160, "stride": 1},
+    "Close-up (about 150 km wide)": {
+        "kind": "window",
+        "half": 160,
+        "stride": 1,
+    },
     "Wide region (about 940 km wide)": {
-        "kind": "box", "lat": (-17.3, -1.5), "lon": (129.9, 145.7), "stride": 4},
+        "kind": "box",
+        "lat": (-17.3, -1.5),
+        "lon": (129.9, 145.7),
+        "stride": 4,
+    },
 }
 
-HAZARD_LABELS = {0: "Low (under 5°)", 1: "Moderate (5-15°)", 2: "High (15-30°)", 3: "Very high (30° and up)"}
-HAZARD_SHORT = {0: "Low", 1: "Moderate", 2: "High", 3: "Very high"}
+HAZARD_LABELS = {
+    0: "Low (under 5°)",
+    1: "Moderate (5-15°)",
+    2: "High (15-30°)",
+    3: "Very high (30° and up)",
+}
+HAZARD_SHORT = {
+    0: "Low",
+    1: "Moderate",
+    2: "High",
+    3: "Very high",
+}
 HAZARD_COLORS = ["#2ecc71", "#f1c40f", "#e67e22", "#e74c3c"]
-HAZARD_COLORSCALE = [
-    [0.00, HAZARD_COLORS[0]], [0.25, HAZARD_COLORS[0]],
-    [0.25, HAZARD_COLORS[1]], [0.50, HAZARD_COLORS[1]],
-    [0.50, HAZARD_COLORS[2]], [0.75, HAZARD_COLORS[2]],
-    [0.75, HAZARD_COLORS[3]], [1.00, HAZARD_COLORS[3]],
-]
-MARS_SCALE = [[0.0, "#21130F"], [0.25, "#71321F"], [0.50, "#B94E2C"], [0.75, "#E18A48"], [1.0, "#F5D6A5"]]
 
-# name: (start lat, start lon, goal lat, goal lon)
+HAZARD_COLORSCALE = [
+    [0.00, HAZARD_COLORS[0]],
+    [0.25, HAZARD_COLORS[0]],
+    [0.25, HAZARD_COLORS[1]],
+    [0.50, HAZARD_COLORS[1]],
+    [0.50, HAZARD_COLORS[2]],
+    [0.75, HAZARD_COLORS[2]],
+    [0.75, HAZARD_COLORS[3]],
+    [1.00, HAZARD_COLORS[3]],
+]
+
+MARS_SCALE = [
+    [0.0, "#21130F"],
+    [0.25, "#71321F"],
+    [0.50, "#B94E2C"],
+    [0.75, "#E18A48"],
+    [1.0, "#F5D6A5"],
+]
+
+# name: (start latitude, start longitude, goal latitude, goal longitude)
 PRESETS = {
-    "Landing site to Mount Sharp base": (-4.59, 137.44, -5.05, 137.80),
-    "Landing site to North crater wall": (-4.59, 137.44, -4.30, 137.50),
-    "Long traverse (wide region only)": (-3.5, 132.0, -8.0, 140.0),
+    "Landing site to Mount Sharp base": (
+        -4.59, 137.44, -5.05, 137.80
+    ),
+    "Landing site to North crater wall": (
+        -4.59, 137.44, -4.30, 137.50
+    ),
+    "Long traverse (wide region only)": (
+        -3.5, 132.0, -8.0, 140.0
+    ),
 }
 
 PLOT_LAYOUT = dict(
@@ -86,8 +121,11 @@ PLOT_LAYOUT = dict(
 # =========================================================
 BACKGROUND_IMAGE = BASE_DIR / "assets" / "mars.jpg"
 BACKGROUND_CSS = "none"
+
 if BACKGROUND_IMAGE.exists():
-    _b64 = base64.b64encode(BACKGROUND_IMAGE.read_bytes()).decode("ascii")
+    _b64 = base64.b64encode(
+        BACKGROUND_IMAGE.read_bytes()
+    ).decode("ascii")
     BACKGROUND_CSS = f"url(data:image/jpeg;base64,{_b64})"
 
 CSS = """
@@ -142,46 +180,74 @@ CSS = """
 .footer{color:#C7A994;font-size:12px;text-align:center;padding:20px}
 </style>
 """.replace("__BG__", BACKGROUND_CSS)
-st.markdown(CSS, unsafe_allow_html=True)
 
+st.markdown(CSS, unsafe_allow_html=True)
 
 # =========================================================
 # UI HELPERS
 # =========================================================
 def kpi(label, value, sub=""):
-    return (f'<div class="kpi"><div class="label">{label}</div>'
-            f'<div class="value">{value}</div><div class="sub">{sub}</div></div>')
+    return (
+        f'<div class="kpi"><div class="label">{label}</div>'
+        f'<div class="value">{value}</div><div class="sub">{sub}</div></div>'
+    )
 
 
 def title(text, sub=""):
-    st.markdown(f'<div class="section-title">{text}</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="section-title">{text}</div>',
+        unsafe_allow_html=True
+    )
     if sub:
-        st.markdown(f'<div class="section-sub">{sub}</div>', unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="section-sub">{sub}</div>',
+            unsafe_allow_html=True
+        )
 
 
 def note(text):
-    st.markdown(f'<div class="note">{text}</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="note">{text}</div>',
+        unsafe_allow_html=True
+    )
 
 
 def kpi_row(items):
-    for col, (label, value, sub) in zip(st.columns(len(items)), items):
-        col.markdown(kpi(label, value, sub), unsafe_allow_html=True)
+    for col, (label, value, sub) in zip(
+        st.columns(len(items)), items
+    ):
+        col.markdown(
+            kpi(label, value, sub),
+            unsafe_allow_html=True
+        )
 
 
 def legend(items):
-    html = "".join(f'<span><i style="background:{c}"></i>{t}</span>' for c, t in items)
-    st.markdown(f'<div class="legend">{html}</div>', unsafe_allow_html=True)
+    html = "".join(
+        f'<span><i style="background:{c}"></i>{t}</span>'
+        for c, t in items
+    )
+    st.markdown(
+        f'<div class="legend">{html}</div>',
+        unsafe_allow_html=True
+    )
 
 
 def _version_tuple():
     try:
-        return tuple(int(x) for x in st.__version__.split(".")[:2])
+        return tuple(
+            int(x) for x in st.__version__.split(".")[:2]
+        )
     except Exception:
         return (1, 0)
 
 
 # Newer Streamlit replaced use_container_width with width="stretch"
-STRETCH = {"width": "stretch"} if _version_tuple() >= (1, 50) else {"use_container_width": True}
+STRETCH = (
+    {"width": "stretch"}
+    if _version_tuple() >= (1, 50)
+    else {"use_container_width": True}
+)
 
 
 def show_plot(fig):
@@ -189,8 +255,14 @@ def show_plot(fig):
 
 
 def html_download(fig, label, filename, key):
-    """Standalone interactive HTML copy of a figure (replaces the old preview scripts' write_html)."""
-    st.download_button(label, fig.to_html(include_plotlyjs="cdn"), filename, "text/html", key=key)
+    """Standalone interactive HTML copy of a figure."""
+    st.download_button(
+        label,
+        fig.to_html(include_plotlyjs="cdn"),
+        filename,
+        "text/html",
+        key=key,
+    )
 
 
 # =========================================================
@@ -200,8 +272,13 @@ def get_images(folder):
     folder = Path(folder)
     if not folder.exists():
         return []
+
     return sorted(
-        (p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS),
+        (
+            p for p in folder.iterdir()
+            if p.is_file()
+            and p.suffix.lower() in IMAGE_EXTENSIONS
+        ),
         key=lambda p: p.name.lower(),
     )
 
@@ -211,8 +288,12 @@ def _tile_bytes(path, width=720, height=480):
     """Crop every image to the same tile size so the grid lines up."""
     try:
         from PIL import Image, ImageOps
+
         with Image.open(path) as image:
-            image = ImageOps.fit(image.convert("RGB"), (width, height))
+            image = ImageOps.fit(
+                image.convert("RGB"),
+                (width, height)
+            )
             buffer = io.BytesIO()
             image.save(buffer, format="JPEG", quality=88)
             return buffer.getvalue()
@@ -221,7 +302,7 @@ def _tile_bytes(path, width=720, height=480):
 
 
 if hasattr(st, "dialog"):
-    @st.dialog("Image viewer", width="large")
+    @st.dialog("Dataset preview", width="large")
     def _viewer(path):
         st.image(path, **STRETCH)
         st.caption(Path(path).name)
@@ -230,39 +311,80 @@ else:
 
 
 def image_grid(images, columns=3, key="grid"):
-    """Equal-size tiles in rows of `columns`, with a button to enlarge each one."""
+    """Equal-size tiles in rows of `columns`."""
     if not images:
-        st.info("No images in this folder yet.")
+        st.info("No dataset previews are available in this folder yet.")
         return
+
     for start in range(0, len(images), columns):
         cols = st.columns(columns)
-        for col, path in zip(cols, images[start:start + columns]):
+
+        for col, path in zip(
+            cols, images[start:start + columns]
+        ):
             with col:
                 with st.container(border=True):
                     st.image(_tile_bytes(str(path)), **STRETCH)
-                    st.markdown(f"**{path.stem.replace('_', ' ')}**")
-                    if _viewer and st.button("Enlarge", key=f"{key}_{path.name}"):
+                    st.markdown(
+                        f"**{path.stem.replace('_', ' ')}**"
+                    )
+
+                    if _viewer and st.button(
+                        "Enlarge",
+                        key=f"{key}_{path.name}"
+                    ):
                         _viewer(str(path))
 
 
-def gallery(folder, label, compare=False):
+def dataset_browser(folder, label, compare=False):
     images = get_images(folder)
+
     if not images:
-        st.warning(f"No image files found in `{Path(folder).relative_to(BASE_DIR)}`.")
+        st.warning(
+            f"No dataset preview files found in "
+            f"`{Path(folder).relative_to(BASE_DIR)}`."
+        )
         st.caption("Add JPG, PNG or WEBP files to that folder and reload.")
         return
+
     c1, c2, c3 = st.columns([3, 1, 1])
-    search = c1.text_input("Search by file name", key=f"{label}_search")
-    columns = c2.selectbox("Columns", [2, 3, 4], index=1, key=f"{label}_cols")
-    shown = [p for p in images if search.lower() in p.name.lower()]
-    c3.metric("Images", len(shown))
+    search = c1.text_input(
+        "Search datasets",
+        key=f"{label}_search"
+    )
+    columns = c2.selectbox(
+        "Columns",
+        [2, 3, 4],
+        index=1,
+        key=f"{label}_cols"
+    )
+
+    shown = [
+        p for p in images
+        if search.lower() in p.name.lower()
+    ]
+
+    c3.metric("Datasets", len(shown))
     image_grid(shown, columns, key=label)
 
     if compare and len(images) >= 2:
         with st.expander("Compare two images side by side"):
             a, b = st.columns(2)
-            first = a.selectbox("Left", images, format_func=lambda p: p.name, key=f"{label}_l")
-            second = b.selectbox("Right", images, index=1, format_func=lambda p: p.name, key=f"{label}_r")
+
+            first = a.selectbox(
+                "Left",
+                images,
+                format_func=lambda p: p.name,
+                key=f"{label}_l"
+            )
+            second = b.selectbox(
+                "Right",
+                images,
+                index=1,
+                format_func=lambda p: p.name,
+                key=f"{label}_r"
+            )
+
             a.image(str(first), **STRETCH)
             b.image(str(second), **STRETCH)
 
@@ -273,73 +395,140 @@ def gallery(folder, label, compare=False):
 @st.cache_data(show_spinner="Loading NASA MOLA elevation data...")
 def load_mola_data(xml_path, modified_time):
     product = pds4_read(str(xml_path), quiet=True)
-    elevation = np.asarray(product[0].data, dtype=np.float32)
+    elevation = np.asarray(
+        product[0].data,
+        dtype=np.float32
+    )
     elevation[~np.isfinite(elevation)] = np.nan
     return elevation
 
 
 def pixel_size_m(lat_deg):
-    """Ground size of one MOLA pixel in metres: (east-west, north-south)."""
+    """Ground size of one MOLA pixel in metres: east-west, north-south."""
     dy = math.pi * MARS_RADIUS_M / (180.0 * PPD)
     return dy * math.cos(math.radians(lat_deg)), dy
 
 
 def compute_slope(terrain, dx, dy):
     valid = np.isfinite(terrain)
+
     if not valid.any():
         raise ValueError("No valid elevation data found.")
+
     if valid.all():
         filled = terrain
     elif distance_transform_edt is not None:
-        idx = distance_transform_edt(~valid, return_distances=False, return_indices=True)
+        idx = distance_transform_edt(
+            ~valid,
+            return_distances=False,
+            return_indices=True
+        )
         filled = terrain[tuple(idx)]
     else:
-        filled = np.where(valid, terrain, np.nanmedian(terrain))
+        filled = np.where(
+            valid,
+            terrain,
+            np.nanmedian(terrain)
+        )
+
     gy, gx = np.gradient(filled, dy, dx)
     slope = np.degrees(np.arctan(np.hypot(gx, gy)))
     slope[~valid] = np.nan
+
     return slope
 
 
 def classify_hazard(slope):
     """0 low, 1 moderate, 2 high, 3 very high, -1 unknown."""
-    hazard = np.full(slope.shape, -1, dtype=np.int8)
+    hazard = np.full(
+        slope.shape,
+        -1,
+        dtype=np.int8
+    )
+
     ok = np.isfinite(slope)
+
     hazard[ok & (slope < 5)] = 0
     hazard[ok & (slope >= 5) & (slope < 15)] = 1
     hazard[ok & (slope >= 15) & (slope < 30)] = 2
     hazard[ok & (slope >= 30)] = 3
+
     return hazard
 
 
 @st.cache_data(show_spinner="Processing terrain...")
 def load_analysis(area_key):
     if not MOLA_XML.exists():
-        raise FileNotFoundError(f"MOLA XML file not found: {MOLA_XML}")
-    elevation = load_mola_data(str(MOLA_XML), MOLA_XML.stat().st_mtime)
+        raise FileNotFoundError(
+            f"MOLA XML file not found: {MOLA_XML}"
+        )
+
+    elevation = load_mola_data(
+        str(MOLA_XML),
+        MOLA_XML.stat().st_mtime
+    )
+
     area = AREAS[area_key]
 
     if area["kind"] == "window":
         row_c = round(-GALE_LAT * PPD)
-        col_c = round((GALE_LON - TILE_LON_MIN) * PPD)
-        r0, r1 = row_c - area["half"], row_c + area["half"]
-        c0, c1 = col_c - area["half"], col_c + area["half"]
+        col_c = round(
+            (GALE_LON - TILE_LON_MIN) * PPD
+        )
+
+        r0 = row_c - area["half"]
+        r1 = row_c + area["half"]
+        c0 = col_c - area["half"]
+        c1 = col_c + area["half"]
+
     else:
-        (lat_lo, lat_hi), (lon_lo, lon_hi) = area["lat"], area["lon"]
-        r0, r1 = int(np.floor((TILE_LAT_MAX - lat_hi) * PPD)), int(np.ceil((TILE_LAT_MAX - lat_lo) * PPD))
-        c0, c1 = int(np.floor((lon_lo - TILE_LON_MIN) * PPD)), int(np.ceil((lon_hi - TILE_LON_MIN) * PPD))
+        (lat_lo, lat_hi) = area["lat"]
+        (lon_lo, lon_hi) = area["lon"]
+
+        r0 = int(
+            np.floor((TILE_LAT_MAX - lat_hi) * PPD)
+        )
+        r1 = int(
+            np.ceil((TILE_LAT_MAX - lat_lo) * PPD)
+        )
+        c0 = int(
+            np.floor((lon_lo - TILE_LON_MIN) * PPD)
+        )
+        c1 = int(
+            np.ceil((lon_hi - TILE_LON_MIN) * PPD)
+        )
 
     r0, c0 = max(0, r0), max(0, c0)
-    r1, c1 = min(elevation.shape[0], r1), min(elevation.shape[1], c1)
+    r1 = min(elevation.shape[0], r1)
+    c1 = min(elevation.shape[1], c1)
+
     terrain = elevation[r0:r1, c0:c1].copy()
-    lats = -(np.arange(r0, r1) + 0.5) / PPD            # row 0 is the northern edge
-    lons = TILE_LON_MIN + (np.arange(c0, c1) + 0.5) / PPD
+
+    lats = -(
+        np.arange(r0, r1) + 0.5
+    ) / PPD
+
+    lons = (
+        TILE_LON_MIN
+        + (np.arange(c0, c1) + 0.5) / PPD
+    )
+
     center_lat = float(lats.mean())
     dx, dy = pixel_size_m(center_lat)
+
     slope = compute_slope(terrain, dx, dy)
-    return {"terrain": terrain, "lats": lats, "lons": lons, "slope": slope,
-            "hazard": classify_hazard(slope), "dx": dx, "dy": dy,
-            "center_lat": center_lat, "center_lon": float(lons.mean())}
+
+    return {
+        "terrain": terrain,
+        "lats": lats,
+        "lons": lons,
+        "slope": slope,
+        "hazard": classify_hazard(slope),
+        "dx": dx,
+        "dy": dy,
+        "center_lat": center_lat,
+        "center_lon": float(lons.mean()),
+    }
 
 
 def require_analysis(area_key):
@@ -347,7 +536,9 @@ def require_analysis(area_key):
         return load_analysis(area_key)
     except Exception as error:
         st.error(f"Terrain loading failed: {error}")
-        st.caption(f"Expected the MOLA files in `{MOLA_XML.parent}`")
+        st.caption(
+            f"Expected the MOLA files in `{MOLA_XML.parent}`"
+        )
         st.stop()
 
 
@@ -355,48 +546,102 @@ def sub(a, s):
     """Every s-th cell; pixel size grows by s."""
     if s == 1:
         return a
-    return {"terrain": a["terrain"][::s, ::s], "lats": a["lats"][::s], "lons": a["lons"][::s],
-            "slope": a["slope"][::s, ::s], "hazard": a["hazard"][::s, ::s],
-            "dx": a["dx"] * s, "dy": a["dy"] * s,
-            "center_lat": a["center_lat"], "center_lon": a["center_lon"]}
+
+    return {
+        "terrain": a["terrain"][::s, ::s],
+        "lats": a["lats"][::s],
+        "lons": a["lons"][::s],
+        "slope": a["slope"][::s, ::s],
+        "hazard": a["hazard"][::s, ::s],
+        "dx": a["dx"] * s,
+        "dy": a["dy"] * s,
+        "center_lat": a["center_lat"],
+        "center_lon": a["center_lon"],
+    }
 
 
 def disp(a, limit=450):
     """Thinned copy used for drawing, so big areas stay fast."""
-    return sub(a, max(1, max(a["terrain"].shape) // limit))
+    return sub(
+        a,
+        max(1, max(a["terrain"].shape) // limit)
+    )
 
 
 def terrain_statistics(terrain):
     valid = terrain[np.isfinite(terrain)]
+
     if valid.size == 0:
-        return dict.fromkeys(["minimum", "maximum", "mean"], float("nan"))
-    return {"minimum": float(valid.min()), "maximum": float(valid.max()), "mean": float(valid.mean())}
+        return dict.fromkeys(
+            ["minimum", "maximum", "mean"],
+            float("nan")
+        )
+
+    return {
+        "minimum": float(valid.min()),
+        "maximum": float(valid.max()),
+        "mean": float(valid.mean()),
+    }
 
 
 def hazard_table(hazard):
-    total = max(1, np.count_nonzero(hazard >= 0))
-    return [{"Class": HAZARD_LABELS[i], "Pixels": f"{np.count_nonzero(hazard == i):,}",
-             "Share": f"{np.count_nonzero(hazard == i) / total * 100:.2f}%"} for i in range(4)]
+    total = max(
+        1,
+        np.count_nonzero(hazard >= 0)
+    )
+
+    return [
+        {
+            "Class": HAZARD_LABELS[i],
+            "Pixels": f"{np.count_nonzero(hazard == i):,}",
+            "Share": (
+                f"{np.count_nonzero(hazard == i) / total * 100:.2f}%"
+            ),
+        }
+        for i in range(4)
+    ]
 
 
 def hazard_share(hazard):
-    total = max(1, np.count_nonzero(hazard >= 0))
-    return {i: np.count_nonzero(hazard == i) / total * 100 for i in range(4)}
+    total = max(
+        1,
+        np.count_nonzero(hazard >= 0)
+    )
+
+    return {
+        i: np.count_nonzero(hazard == i) / total * 100
+        for i in range(4)
+    }
 
 
 def read_mola_metadata():
-    """Coordinate tags from the PDS4 label (what inspect_mola_metadata.py printed)."""
-    wanted = {"west_bounding_coordinate", "east_bounding_coordinate", "north_bounding_coordinate",
-              "south_bounding_coordinate", "pixel_resolution_x", "pixel_resolution_y",
-              "minimum_latitude", "maximum_latitude"}
+    """Coordinate tags from the PDS4 label."""
+    wanted = {
+        "west_bounding_coordinate",
+        "east_bounding_coordinate",
+        "north_bounding_coordinate",
+        "south_bounding_coordinate",
+        "pixel_resolution_x",
+        "pixel_resolution_y",
+        "minimum_latitude",
+        "maximum_latitude",
+    }
+
     rows = []
+
     try:
         for element in ET.parse(MOLA_XML).getroot().iter():
             tag = element.tag.split("}")[-1]
+
             if tag in wanted and element.text:
-                rows.append({"Field": tag, "Value": element.text.strip()})
+                rows.append({
+                    "Field": tag,
+                    "Value": element.text.strip()
+                })
+
     except Exception:
         pass
+
     return rows
 
 
@@ -404,271 +649,765 @@ def read_mola_metadata():
 # MAPS AND 3D
 # =========================================================
 def _finish(fig, name, compact, height):
-    fig.update_layout(title=name, xaxis_title="Longitude (°E)", yaxis_title="Latitude (°)",
-                      height=height if not compact else 330, **PLOT_LAYOUT)
-    return fig       # latitudes decrease down the rows, so north is already at the top
+    fig.update_layout(
+        title=name,
+        xaxis_title="Longitude (°E)",
+        yaxis_title="Latitude (°)",
+        height=height if not compact else 330,
+        **PLOT_LAYOUT
+    )
+    return fig
 
 
 def elevation_map(a, compact=False):
     d = disp(a)
-    fig = go.Figure(go.Heatmap(
-        x=d["lons"], y=d["lats"], z=d["terrain"], colorscale=MARS_SCALE,
-        colorbar=dict(title="Elevation (m)"),
-        hovertemplate="Longitude: %{x:.3f}°E<br>Latitude: %{y:.3f}°<br>Elevation: %{z:.0f} m<extra></extra>"))
-    if d["lons"].min() <= GALE_LON <= d["lons"].max() and d["lats"].min() <= GALE_LAT <= d["lats"].max():
-        fig.add_trace(go.Scatter(x=[GALE_LON], y=[GALE_LAT], mode="markers+text", text=["Gale Crater"],
-                                 textposition="top right", name="Gale Crater",
-                                 marker=dict(size=11, color="white", line=dict(color="black", width=2))))
+
+    fig = go.Figure(
+        go.Heatmap(
+            x=d["lons"],
+            y=d["lats"],
+            z=d["terrain"],
+            colorscale=MARS_SCALE,
+            colorbar=dict(title="Elevation (m)"),
+            hovertemplate=(
+                "Longitude: %{x:.3f}°E<br>"
+                "Latitude: %{y:.3f}°<br>"
+                "Elevation: %{z:.0f} m<extra></extra>"
+            ),
+        )
+    )
+
+    if (
+        d["lons"].min() <= GALE_LON <= d["lons"].max()
+        and d["lats"].min() <= GALE_LAT <= d["lats"].max()
+    ):
+        fig.add_trace(
+            go.Scatter(
+                x=[GALE_LON],
+                y=[GALE_LAT],
+                mode="markers+text",
+                text=["Gale Crater"],
+                textposition="top right",
+                name="Gale Crater",
+                marker=dict(
+                    size=11,
+                    color="white",
+                    line=dict(color="black", width=2)
+                ),
+            )
+        )
+
     fig.update_layout(showlegend=False)
-    return _finish(fig, "Elevation (brighter means higher)", compact, 650)
+
+    return _finish(
+        fig,
+        "Elevation (brighter means higher)",
+        compact,
+        650
+    )
 
 
 def slope_map(a, compact=False):
     d = disp(a)
-    fig = go.Figure(go.Heatmap(
-        x=d["lons"], y=d["lats"], z=d["slope"], colorscale="Turbo", zmin=0, zmax=40,
-        colorbar=dict(title="Slope (°)"),
-        hovertemplate="Longitude: %{x:.3f}°E<br>Latitude: %{y:.3f}°<br>Slope: %{z:.1f}°<extra></extra>"))
-    return _finish(fig, "Slope in degrees (red and orange are steep)", compact, 650)
+
+    fig = go.Figure(
+        go.Heatmap(
+            x=d["lons"],
+            y=d["lats"],
+            z=d["slope"],
+            colorscale="Turbo",
+            zmin=0,
+            zmax=40,
+            colorbar=dict(title="Slope (°)"),
+            hovertemplate=(
+                "Longitude: %{x:.3f}°E<br>"
+                "Latitude: %{y:.3f}°<br>"
+                "Slope: %{z:.1f}°<extra></extra>"
+            ),
+        )
+    )
+
+    return _finish(
+        fig,
+        "Slope in degrees (red and orange are steep)",
+        compact,
+        650
+    )
 
 
 def hazard_map(a, compact=False):
     d = disp(a)
-    z = np.where(d["hazard"] >= 0, d["hazard"], np.nan).astype(float)
-    fig = go.Figure(go.Heatmap(
-        x=d["lons"], y=d["lats"], z=z, zmin=0, zmax=3, colorscale=HAZARD_COLORSCALE,
-        colorbar=dict(title="Hazard", tickvals=[0, 1, 2, 3], ticktext=list(HAZARD_SHORT.values())),
-        hovertemplate="Longitude: %{x:.3f}°E<br>Latitude: %{y:.3f}°<extra></extra>"))
-    return _finish(fig, "Hazard classes from slope", compact, 650)
+
+    z = np.where(
+        d["hazard"] >= 0,
+        d["hazard"],
+        np.nan
+    ).astype(float)
+
+    fig = go.Figure(
+        go.Heatmap(
+            x=d["lons"],
+            y=d["lats"],
+            z=z,
+            zmin=0,
+            zmax=3,
+            colorscale=HAZARD_COLORSCALE,
+            colorbar=dict(
+                title="Hazard",
+                tickvals=[0, 1, 2, 3],
+                ticktext=list(HAZARD_SHORT.values())
+            ),
+            hovertemplate=(
+                "Longitude: %{x:.3f}°E<br>"
+                "Latitude: %{y:.3f}°<extra></extra>"
+            ),
+        )
+    )
+
+    return _finish(
+        fig,
+        "Hazard classes from slope",
+        compact,
+        650
+    )
 
 
 def terrain_3d(a, exaggeration):
-    step = max(1, max(a["terrain"].shape) // 150)
+    step = max(
+        1,
+        max(a["terrain"].shape) // 150
+    )
+
     t = a["terrain"][::step, ::step]
-    lon_g, lat_g = np.meshgrid(a["lons"][::step], a["lats"][::step])
-    x_km = (lon_g - a["center_lon"]) * a["dx"] * PPD / 1000.0
-    y_km = (lat_g - a["center_lat"]) * a["dy"] * PPD / 1000.0
-    fig = go.Figure(go.Surface(
-        x=x_km, y=y_km, z=t / 1000.0 * exaggeration, surfacecolor=t, colorscale=MARS_SCALE,
-        colorbar=dict(title="Elevation (m)"), connectgaps=False,
-        hovertemplate="Elevation: %{surfacecolor:.0f} m<extra></extra>"))
+
+    lon_g, lat_g = np.meshgrid(
+        a["lons"][::step],
+        a["lats"][::step]
+    )
+
+    x_km = (
+        (lon_g - a["center_lon"])
+        * a["dx"] * PPD / 1000.0
+    )
+    y_km = (
+        (lat_g - a["center_lat"])
+        * a["dy"] * PPD / 1000.0
+    )
+
+    fig = go.Figure(
+        go.Surface(
+            x=x_km,
+            y=y_km,
+            z=t / 1000.0 * exaggeration,
+            surfacecolor=t,
+            colorscale=MARS_SCALE,
+            colorbar=dict(title="Elevation (m)"),
+            connectgaps=False,
+            hovertemplate=(
+                "Elevation: %{surfacecolor:.0f} m<extra></extra>"
+            ),
+        )
+    )
+
     fig.update_layout(
         title=f"3D terrain (heights stretched x{exaggeration:g})",
-        scene=dict(xaxis_title="West to East (km)", yaxis_title="South to North (km)",
-                   zaxis_title=f"Elevation (km x {exaggeration:g})", aspectmode="data",
-                   camera=dict(eye=dict(x=1.6, y=-1.6, z=1.1))),
-        height=700, **PLOT_LAYOUT)
+        scene=dict(
+            xaxis_title="West to East (km)",
+            yaxis_title="South to North (km)",
+            zaxis_title=f"Elevation (km x {exaggeration:g})",
+            aspectmode="data",
+            camera=dict(
+                eye=dict(x=1.6, y=-1.6, z=1.1)
+            ),
+        ),
+        height=700,
+        **PLOT_LAYOUT
+    )
+
     return fig
 
 
 # =========================================================
 # ROUTE PLANNING
 # =========================================================
-DEFAULT_CFG = {"slope_limit": 30.0, "slope_weight": 3.0, "elevation_weight": 0.15,
-               "hazard_weight": 1.0, "high_penalty": 1000.0}
-HAZARD_FACTOR = {0: 1.0, 1: 2.0, 2: 5.0}
-NEIGHBORS = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)]
+DEFAULT_CFG = {
+    "slope_limit": 30.0,
+    "slope_weight": 3.0,
+    "elevation_weight": 0.15,
+    "hazard_weight": 1.0,
+    "high_penalty": 1000.0,
+}
+
+HAZARD_FACTOR = {
+    0: 1.0,
+    1: 2.0,
+    2: 5.0,
+}
+
+NEIGHBORS = [
+    (-1, 0), (1, 0),
+    (0, -1), (0, 1),
+    (-1, -1), (-1, 1),
+    (1, -1), (1, 1),
+]
 
 
 def cell_distance_m(p, q, g):
-    return math.hypot((q[0] - p[0]) * g["dy"], (q[1] - p[1]) * g["dx"])
+    return math.hypot(
+        (q[0] - p[0]) * g["dy"],
+        (q[1] - p[1]) * g["dx"]
+    )
 
 
 def terrain_cost(p, q, g, cfg):
-    """Step cost. Every factor is at least 1, so plain distance is a valid A* lower bound."""
-    slope_factor = 1.0 + cfg["slope_weight"] * (g["slope"][q] / 30.0) ** 2
-    elev_factor = 1.0 + cfg["elevation_weight"] * abs(g["terrain"][q] - g["terrain"][p])
-    base = HAZARD_FACTOR.get(int(g["hazard"][q]), cfg["high_penalty"])
-    hazard_factor = 1.0 + cfg["hazard_weight"] * (base - 1.0)
-    return float(cell_distance_m(p, q, g) * slope_factor * elev_factor * hazard_factor)
+    """Step cost. Every factor is at least 1."""
+    slope_factor = (
+        1.0
+        + cfg["slope_weight"]
+        * (g["slope"][q] / 30.0) ** 2
+    )
+
+    elev_factor = (
+        1.0
+        + cfg["elevation_weight"]
+        * abs(g["terrain"][q] - g["terrain"][p])
+    )
+
+    base = HAZARD_FACTOR.get(
+        int(g["hazard"][q]),
+        cfg["high_penalty"]
+    )
+
+    hazard_factor = (
+        1.0
+        + cfg["hazard_weight"] * (base - 1.0)
+    )
+
+    return float(
+        cell_distance_m(p, q, g)
+        * slope_factor
+        * elev_factor
+        * hazard_factor
+    )
 
 
 def blocked_mask(g, cfg):
-    return (~np.isfinite(g["terrain"]) | ~np.isfinite(g["slope"]) | (g["hazard"] < 0)
-            | (g["slope"] >= cfg["slope_limit"]))
+    return (
+        ~np.isfinite(g["terrain"])
+        | ~np.isfinite(g["slope"])
+        | (g["hazard"] < 0)
+        | (g["slope"] >= cfg["slope_limit"])
+    )
 
 
 def nearest_index(g, lat, lon):
-    return int(np.argmin(np.abs(g["lats"] - lat))), int(np.argmin(np.abs(g["lons"] - lon)))
+    return (
+        int(np.argmin(np.abs(g["lats"] - lat))),
+        int(np.argmin(np.abs(g["lons"] - lon))),
+    )
 
 
 def snap_to_free(cell, blocked, radius=12):
-    """Closest passable cell within `radius` cells, or None."""
+    """Closest passable cell within radius, or None."""
     r, c = cell
+
     if not blocked[r, c]:
         return cell
-    best, best_d = None, None
-    for rr in range(max(0, r - radius), min(blocked.shape[0], r + radius + 1)):
-        for cc in range(max(0, c - radius), min(blocked.shape[1], c + radius + 1)):
+
+    best = None
+    best_d = None
+
+    for rr in range(
+        max(0, r - radius),
+        min(blocked.shape[0], r + radius + 1)
+    ):
+        for cc in range(
+            max(0, c - radius),
+            min(blocked.shape[1], c + radius + 1)
+        ):
             if not blocked[rr, cc]:
                 d = (rr - r) ** 2 + (cc - c) ** 2
+
                 if best is None or d < best_d:
-                    best, best_d = (rr, cc), d
+                    best = (rr, cc)
+                    best_d = d
+
     return best
 
 
 def astar(start, goal, g, cfg):
-    """A* over the grid. Returns a list of (row, col), or [] when no route exists."""
+    """A* over the grid. Returns a list of cells, or [] if no route exists."""
     rows, cols = g["terrain"].shape
     blocked = blocked_mask(g, cfg)
+
     for r, c in (start, goal):
-        if not (0 <= r < rows and 0 <= c < cols) or blocked[r, c]:
+        if (
+            not (0 <= r < rows and 0 <= c < cols)
+            or blocked[r, c]
+        ):
             return []
+
     open_set = [(0.0, 0.0, start)]
-    came_from, g_score, closed = {}, {start: 0.0}, set()
+    came_from = {}
+    g_score = {start: 0.0}
+    closed = set()
+
     while open_set:
         _, _, cur = heapq.heappop(open_set)
+
         if cur in closed:
             continue
+
         if cur == goal:
             path = [goal]
+
             while path[-1] in came_from:
                 path.append(came_from[path[-1]])
+
             return path[::-1]
+
         closed.add(cur)
+
         for dr, dc in NEIGHBORS:
-            nr, nc = cur[0] + dr, cur[1] + dc
-            if not (0 <= nr < rows and 0 <= nc < cols) or blocked[nr, nc] or (nr, nc) in closed:
+            nr = cur[0] + dr
+            nc = cur[1] + dc
+
+            if (
+                not (0 <= nr < rows and 0 <= nc < cols)
+                or blocked[nr, nc]
+                or (nr, nc) in closed
+            ):
                 continue
-            if dr and dc and (blocked[cur[0] + dr, cur[1]] or blocked[cur[0], cur[1] + dc]):
-                continue                                    # no diagonal corner cutting
+
+            if dr and dc and (
+                blocked[cur[0] + dr, cur[1]]
+                or blocked[cur[0], cur[1] + dc]
+            ):
+                continue
+
             nb = (nr, nc)
-            tentative = g_score[cur] + terrain_cost(cur, nb, g, cfg)
-            if tentative < g_score.get(nb, float("inf")):
+
+            tentative = (
+                g_score[cur]
+                + terrain_cost(cur, nb, g, cfg)
+            )
+
+            if tentative < g_score.get(
+                nb,
+                float("inf")
+            ):
                 came_from[nb] = cur
                 g_score[nb] = tentative
-                heapq.heappush(open_set, (tentative + cell_distance_m(nb, goal, g), tentative, nb))
+
+                heapq.heappush(
+                    open_set,
+                    (
+                        tentative + cell_distance_m(nb, goal, g),
+                        tentative,
+                        nb,
+                    )
+                )
+
     return []
 
 
 def straight_line(start, goal):
-    n = max(abs(goal[0] - start[0]), abs(goal[1] - start[1])) + 1
-    rr = np.rint(np.linspace(start[0], goal[0], n)).astype(int)
-    cc = np.rint(np.linspace(start[1], goal[1], n)).astype(int)
-    return [(int(r), int(c)) for r, c in zip(rr, cc)]
+    n = (
+        max(
+            abs(goal[0] - start[0]),
+            abs(goal[1] - start[1])
+        ) + 1
+    )
+
+    rr = np.rint(
+        np.linspace(start[0], goal[0], n)
+    ).astype(int)
+
+    cc = np.rint(
+        np.linspace(start[1], goal[1], n)
+    ).astype(int)
+
+    return [
+        (int(r), int(c))
+        for r, c in zip(rr, cc)
+    ]
 
 
 def track(g, cells, cfg=None, blocked=None):
-    """Everything we need to know about a path, as plain lists (cheap to keep in session state)."""
-    elev = [float(g["terrain"][p]) for p in cells]
-    slope = [float(g["slope"][p]) for p in cells]
-    seg = [cell_distance_m(p, q, g) for p, q in zip(cells[:-1], cells[1:])]
+    """Collect route metrics and coordinates."""
+    elev = [
+        float(g["terrain"][p])
+        for p in cells
+    ]
+
+    slope = [
+        float(g["slope"][p])
+        for p in cells
+    ]
+
+    seg = [
+        cell_distance_m(p, q, g)
+        for p, q in zip(cells[:-1], cells[1:])
+    ]
+
     dz = np.diff(elev)
     cost = None
+
     if cfg is not None:
-        cost = sum(terrain_cost(p, q, g, cfg) for p, q in zip(cells[:-1], cells[1:]))
+        cost = sum(
+            terrain_cost(p, q, g, cfg)
+            for p, q in zip(cells[:-1], cells[1:])
+        )
+
     return {
-        "coords": [(float(g["lats"][r]), float(g["lons"][c])) for r, c in cells],
-        "elev": elev, "slope": slope, "haz": [int(g["hazard"][p]) for p in cells],
+        "coords": [
+            (
+                float(g["lats"][r]),
+                float(g["lons"][c])
+            )
+            for r, c in cells
+        ],
+        "elev": elev,
+        "slope": slope,
+        "haz": [
+            int(g["hazard"][p])
+            for p in cells
+        ],
         "seg_m": seg,
-        "dist_km": [0.0] + list(np.cumsum(seg) / 1000.0),
+        "dist_km": (
+            [0.0]
+            + list(np.cumsum(seg) / 1000.0)
+        ),
         "distance_km": sum(seg) / 1000.0,
-        "mean_slope": float(np.nanmean(slope)) if np.isfinite(slope).any() else float("nan"),
-        "max_slope": float(np.nanmax(slope)) if np.isfinite(slope).any() else float("nan"),
-        "ascent": float(np.nansum(np.clip(dz, 0, None))),
-        "descent": float(np.nansum(np.clip(-dz, 0, None))),
+        "mean_slope": (
+            float(np.nanmean(slope))
+            if np.isfinite(slope).any()
+            else float("nan")
+        ),
+        "max_slope": (
+            float(np.nanmax(slope))
+            if np.isfinite(slope).any()
+            else float("nan")
+        ),
+        "ascent": float(
+            np.nansum(np.clip(dz, 0, None))
+        ),
+        "descent": float(
+            np.nansum(np.clip(-dz, 0, None))
+        ),
         "cost": cost,
-        "blocked_cells": int(sum(bool(blocked[p]) for p in cells)) if blocked is not None else 0,
+        "blocked_cells": (
+            int(sum(bool(blocked[p]) for p in cells))
+            if blocked is not None
+            else 0
+        ),
     }
 
 
-def compute_route(a, area_key, s_lat, s_lon, g_lat, g_lon, cfg):
-    """Run the planner and store the result. Returns an error message, or None on success."""
-    g = sub(a, AREAS[area_key]["stride"])
+def compute_route(
+    a,
+    area_key,
+    s_lat,
+    s_lon,
+    g_lat,
+    g_lon,
+    cfg
+):
+    """Run the planner and store the result."""
+    g = sub(
+        a,
+        AREAS[area_key]["stride"]
+    )
+
     blocked = blocked_mask(g, cfg)
-    start = snap_to_free(nearest_index(g, s_lat, s_lon), blocked)
-    goal = snap_to_free(nearest_index(g, g_lat, g_lon), blocked)
+
+    start = snap_to_free(
+        nearest_index(g, s_lat, s_lon),
+        blocked
+    )
+
+    goal = snap_to_free(
+        nearest_index(g, g_lat, g_lon),
+        blocked
+    )
+
     if start is None or goal is None:
-        return "The start or destination sits in blocked terrain. Move the point or raise the slope limit."
+        return (
+            "The start or destination sits in blocked terrain. "
+            "Move the point or raise the slope limit."
+        )
+
     if start == goal:
         return "Start and destination map to the same terrain cell."
+
     with st.spinner("Searching for a route..."):
         path = astar(start, goal, g, cfg)
+
     if not path:
         st.session_state.pop("route", None)
-        return "No route found with these settings. Try other points or a higher slope limit."
+        return (
+            "No route found with these settings. "
+            "Try other points or a higher slope limit."
+        )
+
     st.session_state["route"] = {
-        "area": area_key, "cfg": cfg,
+        "area": area_key,
+        "cfg": cfg,
         "main": track(g, path, cfg),
-        "base": track(g, straight_line(start, goal), None, blocked),
+        "base": track(
+            g,
+            straight_line(start, goal),
+            None,
+            blocked
+        ),
     }
+
     return None
 
 
 def route_map(a, route):
     d = disp(a)
-    main, base = route["main"], route["base"]
-    fig = go.Figure(go.Heatmap(x=d["lons"], y=d["lats"], z=d["slope"], colorscale="Turbo", zmin=0, zmax=40,
-                               opacity=0.85, colorbar=dict(title="Slope (°)")))
-    fig.add_trace(go.Scatter(x=[c[1] for c in base["coords"]], y=[c[0] for c in base["coords"]], mode="lines",
-                             line=dict(color="yellow", width=2, dash="dash"), name="Straight line"))
-    fig.add_trace(go.Scatter(x=[c[1] for c in main["coords"]], y=[c[0] for c in main["coords"]], mode="lines",
-                             line=dict(color="white", width=4), name="A* route"))
-    for coord, color, symbol, label in ((main["coords"][0], "#2ECC71", "circle", "Start"),
-                                        (main["coords"][-1], "#00E5FF", "star", "Destination")):
-        fig.add_trace(go.Scatter(x=[coord[1]], y=[coord[0]], mode="markers", name=label,
-                                 marker=dict(size=14, color=color, symbol=symbol,
-                                             line=dict(color="black", width=1))))
-    fig.update_layout(title="Planned route over terrain slope", xaxis_title="Longitude (°E)",
-                      yaxis_title="Latitude (°)", height=650, **PLOT_LAYOUT)
+    main = route["main"]
+    base = route["base"]
+
+    fig = go.Figure(
+        go.Heatmap(
+            x=d["lons"],
+            y=d["lats"],
+            z=d["slope"],
+            colorscale="Turbo",
+            zmin=0,
+            zmax=40,
+            opacity=0.85,
+            colorbar=dict(title="Slope (°)"),
+        )
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=[c[1] for c in base["coords"]],
+            y=[c[0] for c in base["coords"]],
+            mode="lines",
+            line=dict(
+                color="yellow",
+                width=2,
+                dash="dash"
+            ),
+            name="Straight line",
+        )
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=[c[1] for c in main["coords"]],
+            y=[c[0] for c in main["coords"]],
+            mode="lines",
+            line=dict(color="white", width=4),
+            name="A* route",
+        )
+    )
+
+    for coord, color, symbol, label in (
+        (
+            main["coords"][0],
+            "#2ECC71",
+            "circle",
+            "Start"
+        ),
+        (
+            main["coords"][-1],
+            "#00E5FF",
+            "star",
+            "Destination"
+        ),
+    ):
+        fig.add_trace(
+            go.Scatter(
+                x=[coord[1]],
+                y=[coord[0]],
+                mode="markers",
+                name=label,
+                marker=dict(
+                    size=14,
+                    color=color,
+                    symbol=symbol,
+                    line=dict(color="black", width=1),
+                ),
+            )
+        )
+
+    fig.update_layout(
+        title="Planned route over terrain slope",
+        xaxis_title="Longitude (°E)",
+        yaxis_title="Latitude (°)",
+        height=650,
+        **PLOT_LAYOUT
+    )
+
     return fig
 
 
 def profile_figure(main):
-    fig = go.Figure(go.Scatter(x=main["dist_km"], y=main["elev"], mode="lines", fill="tozeroy",
-                               line=dict(color="#F08A4B", width=3)))
-    fig.update_layout(title="Elevation along the route", xaxis_title="Distance (km)",
-                      yaxis_title="Elevation (m)", **PLOT_LAYOUT)
+    fig = go.Figure(
+        go.Scatter(
+            x=main["dist_km"],
+            y=main["elev"],
+            mode="lines",
+            fill="tozeroy",
+            line=dict(color="#F08A4B", width=3),
+        )
+    )
+
+    fig.update_layout(
+        title="Elevation along the route",
+        xaxis_title="Distance (km)",
+        yaxis_title="Elevation (m)",
+        **PLOT_LAYOUT
+    )
+
     return fig
 
 
 def route_csv(main):
     out = io.StringIO()
     writer = csv.writer(out)
-    writer.writerow(["Sequence", "Latitude", "Longitude", "Elevation_m", "Slope_degrees", "Hazard_class"])
-    for i, ((lat, lon), z, s, h) in enumerate(zip(main["coords"], main["elev"], main["slope"], main["haz"]), 1):
-        writer.writerow([i, f"{lat:.5f}", f"{lon:.5f}", f"{z:.1f}", f"{s:.2f}", HAZARD_SHORT.get(h, "Unknown")])
+
+    writer.writerow([
+        "Sequence",
+        "Latitude",
+        "Longitude",
+        "Elevation_m",
+        "Slope_degrees",
+        "Hazard_class",
+    ])
+
+    for i, (
+        (lat, lon),
+        z,
+        s,
+        h
+    ) in enumerate(
+        zip(
+            main["coords"],
+            main["elev"],
+            main["slope"],
+            main["haz"]
+        ),
+        1
+    ):
+        writer.writerow([
+            i,
+            f"{lat:.5f}",
+            f"{lon:.5f}",
+            f"{z:.1f}",
+            f"{s:.2f}",
+            HAZARD_SHORT.get(h, "Unknown"),
+        ])
+
     return out.getvalue()
 
 
 def route_geojson(main):
     feature = {
         "type": "Feature",
-        "properties": {"name": "MARS EXPLORER A* candidate route", "study_site": "Gale Crater", "algorithm": "A*",
-                       "note": "Preliminary terrain-cost route; not a certified safe rover route."},
-        "geometry": {"type": "LineString", "coordinates": [[lon, lat] for lat, lon in main["coords"]]},
+        "properties": {
+            "name": "MARS EXPLORER A* candidate route",
+            "study_site": "Gale Crater",
+            "algorithm": "A*",
+            "note": (
+                "Preliminary terrain-cost route; "
+                "not a certified safe rover route."
+            ),
+        },
+        "geometry": {
+            "type": "LineString",
+            "coordinates": [
+                [lon, lat]
+                for lat, lon in main["coords"]
+            ],
+        },
     }
-    return json.dumps({"type": "FeatureCollection", "features": [feature]}, indent=2)
+
+    return json.dumps(
+        {
+            "type": "FeatureCollection",
+            "features": [feature],
+        },
+        indent=2
+    )
 
 
-EVA_SPEED_FACTOR = {0: 1.0, 1: 0.7, 2: 0.4, 3: 0.15}
+EVA_SPEED_FACTOR = {
+    0: 1.0,
+    1: 0.7,
+    2: 0.4,
+    3: 0.15,
+}
 
 
 def eva_hours(main, speed_kmh):
     seconds = 0.0
-    for dist, haz in zip(main["seg_m"], main["haz"][1:]):
-        seconds += dist / (speed_kmh / 3.6 * EVA_SPEED_FACTOR.get(haz, 0.15))
+
+    for dist, haz in zip(
+        main["seg_m"],
+        main["haz"][1:]
+    ):
+        seconds += (
+            dist
+            / (
+                speed_kmh / 3.6
+                * EVA_SPEED_FACTOR.get(haz, 0.15)
+            )
+        )
+
     return seconds / 3600.0
 
 
 # =========================================================
 # SIDEBAR
 # =========================================================
-PAGES = ["Start Here", "Terrain Maps", "3D Terrain", "Route Planner", "Safety & EVA",
-         "Image Gallery", "Data & Method"]
+PAGES = [
+    "Start Here",
+    "Terrain Maps",
+    "3D Terrain",
+    "Route Planner",
+    "Safety & EVA",
+    "Surface Datasets",
+    "Mission Reference Library",
+]
 
 with st.sidebar:
     st.markdown("## 🔴 MARS EXPLORER")
     st.caption("NASA HACKATHON 2026 | GALE CRATER")
     st.divider()
-    page = st.radio("Go to", PAGES, index=0)
-    st.divider()
-    area_key = st.selectbox("Study area", list(AREAS), help="Close-up is detailed and quick. "
-                            "Wide covers the whole Gale region from the original preview scripts.")
-    st.caption(f"Crater centre: {GALE_LAT}°, {GALE_LON}°E")
 
-if st.session_state.get("route", {}).get("area") not in (None, area_key):
-    st.session_state.pop("route", None)         # a route from another area would not fit this map
+    page = st.radio(
+        "Go to",
+        PAGES,
+        index=0
+    )
+
+    st.divider()
+
+    area_key = st.selectbox(
+        "Study area",
+        list(AREAS),
+        help=(
+            "Close-up is detailed and quick. "
+            "Wide covers the whole Gale region."
+        ),
+    )
+
+    st.caption(
+        f"Crater centre: {GALE_LAT}°, {GALE_LON}°E"
+    )
+
+
+if st.session_state.get("route", {}).get("area") not in (
+    None,
+    area_key
+):
+    st.session_state.pop("route", None)
 
 
 # =========================================================
@@ -676,54 +1415,120 @@ if st.session_state.get("route", {}).get("area") not in (None, area_key):
 # =========================================================
 def page_start():
     a = require_analysis(area_key)
+
     st.markdown(
         '<div class="hero"><h1>MARS EXPLORER</h1>'
         "<p>Where can a rover or an astronaut safely go in Gale Crater? "
-        "This dashboard turns NASA elevation data into slope maps, hazard maps and a planned route.</p>"
-        '<span class="badge">NASA MOLA data</span><span class="badge">Slope and hazard maps</span>'
-        '<span class="badge">3D terrain</span><span class="badge">A* route planner</span>'
-        '<span class="badge">EVA time estimate</span></div>', unsafe_allow_html=True)
+        "This dashboard turns NASA elevation data into slope maps, "
+        "hazard maps and a planned route.</p>"
+        '<span class="badge">NASA MOLA data</span>'
+        '<span class="badge">Slope and hazard maps</span>'
+        '<span class="badge">3D terrain</span>'
+        '<span class="badge">A* route planner</span>'
+        '<span class="badge">EVA time estimate</span></div>',
+        unsafe_allow_html=True
+    )
 
     stats = terrain_statistics(a["terrain"])
     share = hazard_share(a["hazard"])
+
     kpi_row([
-        ("Study area", f"{a['terrain'].shape[1]} x {a['terrain'].shape[0]}", f"pixels of about {a['dx']:.0f} m"),
-        ("Height range", f"{stats['minimum']:.0f} to {stats['maximum']:.0f} m", f"{stats['maximum'] - stats['minimum']:.0f} m of relief"),
-        ("Average slope", f"{np.nanmean(a['slope']):.1f}°", f"steepest {np.nanmax(a['slope']):.1f}°"),
-        ("Easy ground", f"{share[0] + share[1]:.0f}%", "slope under 15°"),
+        (
+            "Study area",
+            f"{a['terrain'].shape[1]} x {a['terrain'].shape[0]}",
+            f"pixels of about {a['dx']:.0f} m",
+        ),
+        (
+            "Height range",
+            f"{stats['minimum']:.0f} to {stats['maximum']:.0f} m",
+            f"{stats['maximum'] - stats['minimum']:.0f} m of relief",
+        ),
+        (
+            "Average slope",
+            f"{np.nanmean(a['slope']):.1f}°",
+            f"steepest {np.nanmax(a['slope']):.1f}°",
+        ),
+        (
+            "Easy ground",
+            f"{share[0] + share[1]:.0f}%",
+            "slope under 15°",
+        ),
     ])
 
     st.write("")
     title("How to use this dashboard")
-    steps = [("1. Look", "Terrain Maps shows height, slope and hazard classes."),
-             ("2. Explore", "3D Terrain lets you rotate the crater and Mount Sharp."),
-             ("3. Plan", "Route Planner finds a low-risk path between two points."),
-             ("4. Check", "Safety & EVA estimates walking time and runs go or no-go checks.")]
-    for col, (head, text) in zip(st.columns(4), steps):
-        col.markdown(f'<div class="step"><b>{head}</b><br><span>{text}</span></div>', unsafe_allow_html=True)
+
+    steps = [
+        (
+            "1. Look",
+            "Terrain Maps shows height, slope and hazard classes."
+        ),
+        (
+            "2. Explore",
+            "3D Terrain lets you rotate the crater and Mount Sharp."
+        ),
+        (
+            "3. Plan",
+            "Route Planner finds a low-risk path between two points."
+        ),
+        (
+            "4. Check",
+            "Safety & EVA estimates walking time and runs go or no-go checks."
+        ),
+    ]
+
+    for col, (head, text) in zip(
+        st.columns(4),
+        steps
+    ):
+        col.markdown(
+            f'<div class="step"><b>{head}</b><br>'
+            f'<span>{text}</span></div>',
+            unsafe_allow_html=True
+        )
 
     st.write("")
     title("Maps at a glance")
+
     top = st.columns(2)
     bottom = st.columns(2)
+
     with top[0]:
         show_plot(elevation_map(a, compact=True))
+
     with top[1]:
         show_plot(slope_map(a, compact=True))
+
     with bottom[0]:
         show_plot(hazard_map(a, compact=True))
+
     with bottom[1]:
         with st.container(border=True):
             st.markdown("**Reading the colours**")
-            legend([(HAZARD_COLORS[i], HAZARD_LABELS[i]) for i in range(4)])
-            st.caption("Hazard is based on slope only. A steeper slope means a harder and riskier drive or walk.")
-            st.markdown("**Want a route?** Open Route Planner and press Quick demo.")
+            legend([
+                (HAZARD_COLORS[i], HAZARD_LABELS[i])
+                for i in range(4)
+            ])
+
+            st.caption(
+                "Hazard is based on slope only. "
+                "A steeper slope means a harder and riskier drive or walk."
+            )
+
+            st.markdown(
+                "**Want a route?** Open Route Planner and press Quick demo."
+            )
 
     images = get_images(IMAGERY_DIR)[:4]
+
     if images:
         st.write("")
-        title("Surface imagery")
-        image_grid(images, columns=4, key="start")
+        title("Surface datasets")
+        image_grid(
+            images,
+            columns=4,
+            key="start"
+        )
 
     with st.expander("Plain-language glossary"):
         st.markdown(
@@ -731,223 +1536,714 @@ def page_start():
             "- **Slope**: how steep the ground is, in degrees. Flat is 0°, a 45° hill is very steep.\n"
             "- **Hazard class**: slope grouped into low, moderate, high and very high.\n"
             "- **A\\***: a search method that finds the cheapest path across a grid.\n"
-            "- **EVA**: extravehicular activity, meaning a walk outside the habitat.")
+            "- **EVA**: extravehicular activity, meaning a walk outside the habitat."
+        )
 
 
 def page_maps():
     a = require_analysis(area_key)
-    title("Terrain Maps", "Three views of the same ground. Hover over any map for exact values.")
-    tab1, tab2, tab3 = st.tabs(["Elevation", "Slope", "Hazard classes"])
+
+    title(
+        "Terrain Maps",
+        "Three views of the same ground. Hover over any map for exact values."
+    )
+
+    tab1, tab2, tab3 = st.tabs([
+        "Elevation",
+        "Slope",
+        "Hazard classes"
+    ])
+
     with tab1:
-        note("Brighter colours are higher ground. The white dot marks Gale Crater's centre.")
+        note(
+            "Brighter colours are higher ground. "
+            "The white dot marks Gale Crater's centre."
+        )
+
         fig = elevation_map(a)
         show_plot(fig)
-        html_download(fig, "Download interactive map (HTML)", "gale_elevation.html", "dl_elev")
+
+        html_download(
+            fig,
+            "Download interactive map (HTML)",
+            "gale_elevation.html",
+            "dl_elev"
+        )
+
     with tab2:
-        note("Slope is how steeply the ground tilts. Blue and green are gentle, orange and red are steep.")
+        note(
+            "Slope is how steeply the ground tilts. "
+            "Blue and green are gentle, orange and red are steep."
+        )
+
         fig = slope_map(a)
         show_plot(fig)
+
         s = a["slope"][np.isfinite(a["slope"])]
-        kpi_row([("Minimum", f"{s.min():.1f}°", ""), ("Average", f"{s.mean():.1f}°", ""), ("Maximum", f"{s.max():.1f}°", "")])
-        html_download(fig, "Download interactive map (HTML)", "gale_slope.html", "dl_slope")
+
+        kpi_row([
+            ("Minimum", f"{s.min():.1f}°", ""),
+            ("Average", f"{s.mean():.1f}°", ""),
+            ("Maximum", f"{s.max():.1f}°", ""),
+        ])
+
+        html_download(
+            fig,
+            "Download interactive map (HTML)",
+            "gale_slope.html",
+            "dl_slope"
+        )
+
     with tab3:
-        note("Each cell gets one of four classes from its slope. Unknown cells stay blank and are never used for routing.")
-        legend([(HAZARD_COLORS[i], HAZARD_LABELS[i]) for i in range(4)])
+        note(
+            "Each cell gets one of four classes from its slope. "
+            "Unknown cells stay blank and are never used for routing."
+        )
+
+        legend([
+            (HAZARD_COLORS[i], HAZARD_LABELS[i])
+            for i in range(4)
+        ])
+
         fig = hazard_map(a)
         show_plot(fig)
+
         st.table(hazard_table(a["hazard"]))
-        html_download(fig, "Download interactive map (HTML)", "gale_hazard.html", "dl_haz")
+
+        html_download(
+            fig,
+            "Download interactive map (HTML)",
+            "gale_hazard.html",
+            "dl_haz"
+        )
 
 
 def page_3d():
     a = require_analysis(area_key)
-    title("3D Terrain", "Drag to rotate, scroll to zoom, double-click to reset the view.")
-    exaggeration = st.slider("Stretch heights by", 1.0, 20.0, 5.0, 0.5,
-                             help="Mars relief is small next to its width, so heights are stretched to be visible.")
+
+    title(
+        "3D Terrain",
+        "Drag to rotate, scroll to zoom, double-click to reset the view."
+    )
+
+    exaggeration = st.slider(
+        "Stretch heights by",
+        1.0,
+        20.0,
+        5.0,
+        0.5,
+        help=(
+            "Mars relief is small next to its width, "
+            "so heights are stretched to be visible."
+        ),
+    )
+
     fig = terrain_3d(a, exaggeration)
     show_plot(fig)
-    html_download(fig, "Download interactive 3D view (HTML)", "gale_3d_terrain.html", "dl_3d")
+
+    html_download(
+        fig,
+        "Download interactive 3D view (HTML)",
+        "gale_3d_terrain.html",
+        "dl_3d"
+    )
 
 
 def page_route():
     a = require_analysis(area_key)
-    title("Route Planner", "Pick two points and the planner finds the cheapest path that avoids steep ground.")
 
-    lat_lo, lat_hi = float(a["lats"].min()), float(a["lats"].max())
-    lon_lo, lon_hi = float(a["lons"].min()), float(a["lons"].max())
-    available = {name: v for name, v in PRESETS.items()
-                 if lat_lo <= min(v[0], v[2]) and max(v[0], v[2]) <= lat_hi
-                 and lon_lo <= min(v[1], v[3]) and max(v[1], v[3]) <= lon_hi}
+    title(
+        "Route Planner",
+        "Pick two points and the planner finds the cheapest path "
+        "that avoids steep ground."
+    )
+
+    lat_lo = float(a["lats"].min())
+    lat_hi = float(a["lats"].max())
+    lon_lo = float(a["lons"].min())
+    lon_hi = float(a["lons"].max())
+
+    available = {
+        name: v
+        for name, v in PRESETS.items()
+        if (
+            lat_lo <= min(v[0], v[2])
+            and max(v[0], v[2]) <= lat_hi
+            and lon_lo <= min(v[1], v[3])
+            and max(v[1], v[3]) <= lon_hi
+        )
+    }
+
     options = list(available) + ["Custom points"]
-    preset = st.selectbox("Mission preset", options)
-    default = available.get(preset) or (a["center_lat"] + 0.4, a["center_lon"] - 0.3,
-                                        a["center_lat"] - 0.4, a["center_lon"] + 0.3)
+    preset = st.selectbox(
+        "Mission preset",
+        options
+    )
+
+    default = available.get(preset) or (
+        a["center_lat"] + 0.4,
+        a["center_lon"] - 0.3,
+        a["center_lat"] - 0.4,
+        a["center_lon"] + 0.3,
+    )
+
     tag = f"{area_key}_{preset}"
 
     c1, c2, c3, c4 = st.columns(4)
-    s_lat = c1.number_input("Start latitude", lat_lo, lat_hi, float(np.clip(default[0], lat_lo, lat_hi)),
-                            0.01, format="%.3f", key=f"sla_{tag}")
-    s_lon = c2.number_input("Start longitude", lon_lo, lon_hi, float(np.clip(default[1], lon_lo, lon_hi)),
-                            0.01, format="%.3f", key=f"slo_{tag}")
-    g_lat = c3.number_input("Destination latitude", lat_lo, lat_hi, float(np.clip(default[2], lat_lo, lat_hi)),
-                            0.01, format="%.3f", key=f"gla_{tag}")
-    g_lon = c4.number_input("Destination longitude", lon_lo, lon_hi, float(np.clip(default[3], lon_lo, lon_hi)),
-                            0.01, format="%.3f", key=f"glo_{tag}")
+
+    s_lat = c1.number_input(
+        "Start latitude",
+        lat_lo,
+        lat_hi,
+        float(np.clip(default[0], lat_lo, lat_hi)),
+        0.01,
+        format="%.3f",
+        key=f"sla_{tag}",
+    )
+
+    s_lon = c2.number_input(
+        "Start longitude",
+        lon_lo,
+        lon_hi,
+        float(np.clip(default[1], lon_lo, lon_hi)),
+        0.01,
+        format="%.3f",
+        key=f"slo_{tag}",
+    )
+
+    g_lat = c3.number_input(
+        "Destination latitude",
+        lat_lo,
+        lat_hi,
+        float(np.clip(default[2], lat_lo, lat_hi)),
+        0.01,
+        format="%.3f",
+        key=f"gla_{tag}",
+    )
+
+    g_lon = c4.number_input(
+        "Destination longitude",
+        lon_lo,
+        lon_hi,
+        float(np.clip(default[3], lon_lo, lon_hi)),
+        0.01,
+        format="%.3f",
+        key=f"glo_{tag}",
+    )
 
     with st.expander("Advanced: how the planner weighs terrain"):
         e1, e2, e3, e4 = st.columns(4)
+
         cfg = dict(DEFAULT_CFG)
-        cfg["slope_limit"] = e1.slider("Steepest slope allowed (°)", 10.0, 40.0, 30.0, 1.0)
-        cfg["slope_weight"] = e2.slider("Slope penalty", 0.0, 10.0, 3.0, 0.5)
-        cfg["elevation_weight"] = e3.slider("Height-change penalty", 0.0, 0.5, 0.15, 0.01)
-        cfg["hazard_weight"] = e4.slider("Hazard penalty", 0.0, 3.0, 1.0, 0.25)
-        st.caption("Higher penalties push the route away from steep or bumpy ground, even if it gets longer.")
+
+        cfg["slope_limit"] = e1.slider(
+            "Steepest slope allowed (°)",
+            10.0,
+            40.0,
+            30.0,
+            1.0
+        )
+
+        cfg["slope_weight"] = e2.slider(
+            "Slope penalty",
+            0.0,
+            10.0,
+            3.0,
+            0.5
+        )
+
+        cfg["elevation_weight"] = e3.slider(
+            "Height-change penalty",
+            0.0,
+            0.5,
+            0.15,
+            0.01
+        )
+
+        cfg["hazard_weight"] = e4.slider(
+            "Hazard penalty",
+            0.0,
+            3.0,
+            1.0,
+            0.25
+        )
+
+        st.caption(
+            "Higher penalties push the route away from steep or bumpy ground, "
+            "even if it gets longer."
+        )
 
     b1, b2 = st.columns(2)
     error = None
-    if b1.button("🚀 Calculate route", type="primary"):
-        error = compute_route(a, area_key, s_lat, s_lon, g_lat, g_lon, cfg)
+
+    if b1.button(
+        "🚀 Calculate route",
+        type="primary"
+    ):
+        error = compute_route(
+            a,
+            area_key,
+            s_lat,
+            s_lon,
+            g_lat,
+            g_lon,
+            cfg
+        )
+
     if b2.button("Quick demo"):
-        demo = next(iter(available.values()), default)
-        error = compute_route(a, area_key, *demo, dict(DEFAULT_CFG))
+        demo = next(
+            iter(available.values()),
+            default
+        )
+
+        error = compute_route(
+            a,
+            area_key,
+            *demo,
+            dict(DEFAULT_CFG)
+        )
+
     if error:
         st.error(error)
 
     route = st.session_state.get("route")
+
     if not route:
-        note("Choose a preset, then press Calculate route. Quick demo runs the first preset with default settings.")
+        note(
+            "Choose a preset, then press Calculate route. "
+            "Quick demo runs the first preset with default settings."
+        )
         return
 
-    main, base = route["main"], route["base"]
+    main = route["main"]
+    base = route["base"]
+
     show_plot(route_map(a, route))
-    legend([("white", "Planned route"), ("yellow", "Straight line, ignores slope"),
-            ("#2ECC71", "Start"), ("#00E5FF", "Destination")])
+
+    legend([
+        ("white", "Planned route"),
+        ("yellow", "Straight line, ignores slope"),
+        ("#2ECC71", "Start"),
+        ("#00E5FF", "Destination"),
+    ])
 
     kpi_row([
-        ("Distance", f"{main['distance_km']:.2f} km", f"{len(main['coords'])} route points"),
-        ("Average slope", f"{main['mean_slope']:.1f}°", f"steepest {main['max_slope']:.1f}°"),
-        ("Climbing", f"{main['ascent']:.0f} m", f"descending {main['descent']:.0f} m"),
-        ("Effort score", f"{main['cost'] / 1000:.1f}", "km-equivalent"),
+        (
+            "Distance",
+            f"{main['distance_km']:.2f} km",
+            f"{len(main['coords'])} route points",
+        ),
+        (
+            "Average slope",
+            f"{main['mean_slope']:.1f}°",
+            f"steepest {main['max_slope']:.1f}°",
+        ),
+        (
+            "Climbing",
+            f"{main['ascent']:.0f} m",
+            f"descending {main['descent']:.0f} m",
+        ),
+        (
+            "Effort score",
+            f"{main['cost'] / 1000:.1f}",
+            "km-equivalent",
+        ),
     ])
+
     st.write("")
-    note(f"A straight line would be {base['distance_km']:.2f} km with a steepest slope of {base['max_slope']:.1f}° "
-         f"and would cross {base['blocked_cells']} cells that are too steep or unknown. "
-         f"The planned route is {main['distance_km']:.2f} km and crosses none.")
+
+    note(
+        f"A straight line would be {base['distance_km']:.2f} km "
+        f"with a steepest slope of {base['max_slope']:.1f}° "
+        f"and would cross {base['blocked_cells']} cells that are too steep "
+        f"or unknown. The planned route is {main['distance_km']:.2f} km "
+        f"and crosses none."
+    )
+
     show_plot(profile_figure(main))
 
     d1, d2 = st.columns(2)
-    d1.download_button("Download route CSV", route_csv(main), "mars_candidate_route.csv", "text/csv")
-    d2.download_button("Download route GeoJSON", route_geojson(main), "mars_candidate_route.geojson",
-                       "application/geo+json")
-    st.caption("Preliminary result from 128 px/deg MOLA data. Not a certified safe rover route.")
+
+    d1.download_button(
+        "Download route CSV",
+        route_csv(main),
+        "mars_candidate_route.csv",
+        "text/csv"
+    )
+
+    d2.download_button(
+        "Download route GeoJSON",
+        route_geojson(main),
+        "mars_candidate_route.geojson",
+        "application/geo+json"
+    )
+
+    st.caption(
+        "Preliminary result from 128 px/deg MOLA data. "
+        "Not a certified safe rover route."
+    )
 
 
 def page_safety():
-    title("Safety & EVA", "How long the walk takes and whether the route passes basic checks.")
+    title(
+        "Safety & EVA",
+        "How long the walk takes and whether the route passes basic checks."
+    )
+
     route = st.session_state.get("route")
+
     if not route:
-        note("No route yet. Open Route Planner and press Quick demo first.")
+        note(
+            "No route yet. Open Route Planner and press Quick demo first."
+        )
         return
 
-    main, cfg = route["main"], route["cfg"]
+    main = route["main"]
+    cfg = route["cfg"]
+
     c1, c2 = st.columns(2)
-    speed = c1.slider("Walking speed on flat ground (km/h)", 1.0, 6.0, 3.0, 0.5)
-    budget = c2.slider("EVA time budget (hours)", 1.0, 12.0, 6.0, 0.5)
+
+    speed = c1.slider(
+        "Walking speed on flat ground (km/h)",
+        1.0,
+        6.0,
+        3.0,
+        0.5
+    )
+
+    budget = c2.slider(
+        "EVA time budget (hours)",
+        1.0,
+        12.0,
+        6.0,
+        0.5
+    )
+
     hours = eva_hours(main, speed)
 
     kpi_row([
-        ("One-way time", f"{hours:.1f} h", f"{hours / budget * 100:.0f}% of budget"),
-        ("Round trip", f"{2 * hours:.1f} h", "same route back"),
-        ("Distance", f"{main['distance_km']:.1f} km", "one way"),
+        (
+            "One-way time",
+            f"{hours:.1f} h",
+            f"{hours / budget * 100:.0f}% of budget",
+        ),
+        (
+            "Round trip",
+            f"{2 * hours:.1f} h",
+            "same route back",
+        ),
+        (
+            "Distance",
+            f"{main['distance_km']:.1f} km",
+            "one way",
+        ),
     ])
+
     st.write("")
-    high = sum(1 for h in main["haz"] if h >= 2)
+
+    high = sum(
+        1 for h in main["haz"]
+        if h >= 2
+    )
+
     checks = [
-        ("Steepest slope is under the planner limit", main["max_slope"] < cfg["slope_limit"],
-         f"{main['max_slope']:.1f}° against {cfg['slope_limit']:.0f}°"),
-        ("No high-hazard cells on the route", high == 0, f"{high} of {len(main['haz'])} cells"),
-        ("One-way trip fits the time budget", hours <= budget, f"{hours:.1f} h of {budget:.1f} h"),
-        ("Round trip fits the time budget", 2 * hours <= budget, f"{2 * hours:.1f} h of {budget:.1f} h"),
-        ("Total climb is under 500 m", main["ascent"] < 500, f"{main['ascent']:.0f} m"),
+        (
+            "Steepest slope is under the planner limit",
+            main["max_slope"] < cfg["slope_limit"],
+            f"{main['max_slope']:.1f}° against {cfg['slope_limit']:.0f}°",
+        ),
+        (
+            "No high-hazard cells on the route",
+            high == 0,
+            f"{high} of {len(main['haz'])} cells",
+        ),
+        (
+            "One-way trip fits the time budget",
+            hours <= budget,
+            f"{hours:.1f} h of {budget:.1f} h",
+        ),
+        (
+            "Round trip fits the time budget",
+            2 * hours <= budget,
+            f"{2 * hours:.1f} h of {budget:.1f} h",
+        ),
+        (
+            "Total climb is under 500 m",
+            main["ascent"] < 500,
+            f"{main['ascent']:.0f} m",
+        ),
     ]
-    passed = sum(ok for _, ok, _ in checks)
-    st.markdown(f"### {'🟢 GO' if passed == len(checks) else '🔴 REVIEW'}: {passed} of {len(checks)} checks passed")
-    for label, ok, detail in checks:
-        st.markdown(f"{'🟢' if ok else '🔴'} **{label}**: {detail}")
 
-    fig = go.Figure(go.Scatter(x=main["dist_km"], y=main["slope"], mode="lines",
-                               line=dict(color="#F0A45D", width=3)))
-    fig.add_hline(y=cfg["slope_limit"], line_dash="dash", line_color="#e74c3c")
-    fig.update_layout(title="Slope along the route (dashed line is the limit)", xaxis_title="Distance (km)",
-                      yaxis_title="Slope (°)", **PLOT_LAYOUT)
-    show_plot(fig)
-    note("Walking speed is multiplied by 1.0 on low hazard ground, 0.7 on moderate, 0.4 on high and 0.15 on very "
-         "high. The 500 m climb check is also an assumption. None of these figures are mission validated.")
-
-
-def page_gallery():
-    title("Image Gallery", "Every image sits in an equal-size tile. Press Enlarge to open one full size.")
-    tab1, tab2, tab3 = st.tabs(["Surface imagery", "Geology", "Thermal"])
-    with tab1:
-        gallery(IMAGERY_DIR, "imagery", compare=True)
-    with tab2:
-        gallery(GEOLOGY_DIR, "geology")
-    with tab3:
-        gallery(THERMAL_DIR, "thermal")
-
-
-def page_data():
-    title("Data & Method", "What data is used, how it is processed and where it falls short.")
-    st.markdown("**Files found**")
-    for label, path in [("MOLA elevation label", MOLA_XML), ("Surface imagery", IMAGERY_DIR),
-                        ("Geology images", GEOLOGY_DIR), ("Thermal images", THERMAL_DIR)]:
-        ok = path.exists()
-        extra = f" ({len(get_images(path))} images)" if ok and path.is_dir() else ""
-        st.markdown(f"{'🟢' if ok else '🔴'} **{label}**: `{path.relative_to(BASE_DIR)}`{extra}")
-
-    a = None
-    try:
-        a = load_analysis(area_key)
-    except Exception:
-        pass
-    if a is not None:
-        st.write("")
-        st.markdown("**Current study area**")
-        valid = a["terrain"][np.isfinite(a["terrain"])]
-        st.table([
-            {"Item": "Grid size", "Value": f"{a['terrain'].shape[1]} x {a['terrain'].shape[0]} pixels"},
-            {"Item": "Latitude range", "Value": f"{a['lats'].min():.2f}° to {a['lats'].max():.2f}°"},
-            {"Item": "Longitude range", "Value": f"{a['lons'].min():.2f}°E to {a['lons'].max():.2f}°E"},
-            {"Item": "Valid pixels", "Value": f"{valid.size:,} of {a['terrain'].size:,}"},
-            {"Item": "Elevation min / mean / max", "Value": f"{valid.min():.0f} / {valid.mean():.0f} / {valid.max():.0f} m"},
-            {"Item": "Pixel size", "Value": f"{a['dx']:.0f} m east-west, {a['dy']:.0f} m north-south"},
-        ])
-
-    meta = read_mola_metadata()
-    if meta:
-        with st.expander("MOLA label coordinates"):
-            st.table(meta)
+    passed = sum(
+        ok for _, ok, _ in checks
+    )
 
     st.markdown(
-        """
-**How it works.** Elevation comes from the NASA MOLA 128 pixels per degree tile `megt00n090hb`. Slope is
-calculated from height differences between neighbouring pixels, using the true ground size of a pixel.
-Slope is grouped into four hazard classes. The route planner searches an 8-neighbour grid with A*. Each
-step costs its distance times factors for slope, height change and hazard, so a longer but gentler route
-can win. Cells at or above the slope limit are blocked, unknown cells are blocked, and the route cannot cut
-across diagonal corners. In the wide area the search samples every fourth pixel to stay fast.
+        f"### {'🟢 GO' if passed == len(checks) else '🔴 REVIEW'}: "
+        f"{passed} of {len(checks)} checks passed"
+    )
 
-**Limits.** One pixel covers about 460 m, so rocks, dunes and small scarps cannot be seen. Hazard here uses
-slope only. Treat every result as a planning demonstration, not a certified safe route. Higher-resolution
-terrain models such as HiRISE would be needed for real mission use.
-""")
+    for label, ok, detail in checks:
+        st.markdown(
+            f"{'🟢' if ok else '🔴'} **{label}**: {detail}"
+        )
+
+    fig = go.Figure(
+        go.Scatter(
+            x=main["dist_km"],
+            y=main["slope"],
+            mode="lines",
+            line=dict(color="#F0A45D", width=3),
+        )
+    )
+
+    fig.add_hline(
+        y=cfg["slope_limit"],
+        line_dash="dash",
+        line_color="#e74c3c"
+    )
+
+    fig.update_layout(
+        title="Slope along the route (dashed line is the limit)",
+        xaxis_title="Distance (km)",
+        yaxis_title="Slope (°)",
+        **PLOT_LAYOUT
+    )
+
+    show_plot(fig)
+
+    note(
+        "Walking speed is multiplied by 1.0 on low hazard ground, "
+        "0.7 on moderate, 0.4 on high and 0.15 on very high. "
+        "The 500 m climb check is also an assumption. "
+        "None of these figures are mission validated."
+    )
 
 
+def page_datasets():
+    title(
+        "Surface Datasets",
+        "Every image sits in an equal-size tile. "
+        "Press Enlarge to open one full size."
+    )
+
+    tab1, tab2, tab3 = st.tabs([
+        "Surface imagery",
+        "Geology",
+        "Thermal"
+    ])
+
+    with tab1:
+        dataset_browser(
+            IMAGERY_DIR,
+            "imagery",
+            compare=True
+        )
+
+    with tab2:
+        dataset_browser(
+            GEOLOGY_DIR,
+            "geology"
+        )
+
+    with tab3:
+        dataset_browser(
+            THERMAL_DIR,
+            "thermal"
+        )
+
+
+# =========================================================
+# MISSION REFERENCE LIBRARY
+# =========================================================
+def page_reference_library():
+    title(
+        "Mission Reference Library",
+        "Where the Mars data comes from and the scientific publications "
+        "used to guide this prototype."
+    )
+
+    # -----------------------------------------------------
+    # DATA SOURCES
+    # -----------------------------------------------------
+    st.markdown("### 1. Data sources and archives")
+
+    st.caption(
+        "The elevation analysis in this dashboard reads the local MOLA "
+        "MEGDR tile `megt00n090hb.xml` (128 pixels per degree). "
+        "The other portals below are reference archives for complementary "
+        "datasets; they are not automatically downloaded or processed "
+        "by the current code."
+    )
+
+    sources = [
+        (
+            "MOLA — Mars Orbiter Laser Altimeter",
+            "Primary elevation source used by this app. The local file is "
+            "expected at `data/elevation/mola/megt00n090hb.xml`; obtain "
+            "the matching image and label from the PDS Geosciences Node "
+            "MOLA MEGDR archive.",
+            "https://pds-geosciences.wustl.edu/missions/mgs/megdr.html"
+        ),
+        (
+            "NASA Planetary Data System (PDS)",
+            "NASA's long-term archive and catalogue for planetary mission "
+            "data. Use it to search, identify and cite original data "
+            "products and their labels.",
+            "https://pds.nasa.gov/"
+        ),
+        (
+            "HiRISE — High Resolution Imaging Science Experiment",
+            "High-resolution Mars Reconnaissance Orbiter imagery. Useful "
+            "for checking local rocks, small-scale terrain texture and "
+            "potential obstacles.",
+            "https://hirise.lpl.arizona.edu/"
+        ),
+        (
+            "CTX — Context Camera",
+            "Mars Reconnaissance Orbiter context imagery for regional "
+            "mapping and placing HiRISE observations in a wider landscape.",
+            "https://pds-imaging.jpl.nasa.gov/"
+        ),
+        (
+            "THEMIS — Thermal Emission Imaging System",
+            "Mars Odyssey visible and infrared observations. Useful for "
+            "studying surface properties and thermal patterns.",
+            "https://themis.asu.edu/"
+        ),
+        (
+            "CRISM — Compact Reconnaissance Imaging Spectrometer for Mars",
+            "Mars Reconnaissance Orbiter spectral data for investigating "
+            "minerals and possible water-related alteration. Search "
+            "CRISM products through PDS.",
+            "https://pds.nasa.gov/"
+        ),
+        (
+            "REMS and RAD — Curiosity rover environmental instruments",
+            "REMS provides surface weather measurements; RAD measures the "
+            "radiation environment. These are relevant to future surface "
+            "and crew-risk layers, but are not inputs to the current "
+            "slope-only route calculation.",
+            "https://pds.nasa.gov/"
+        ),
+    ]
+
+    for row in range(0, len(sources), 2):
+        cols = st.columns(2)
+
+        for col, item in zip(
+            cols,
+            sources[row:row + 2]
+        ):
+            name, description, url = item
+
+            with col:
+                with st.container(border=True):
+                    st.markdown(f"**{name}**")
+                    st.write(description)
+
+                    st.markdown(
+                        f"[Open official data source / archive]({url})"
+                    )
+
+    # -----------------------------------------------------
+    # RESEARCH PAPERS
+    # -----------------------------------------------------
+    st.write("")
+    st.markdown("### 2. Research papers and scientific references")
+
+    papers = [
+        (
+            "Smith, D. E. et al. (2001). Mars Orbiter Laser Altimeter: "
+            "Experiment summary after the first year of global mapping of Mars.",
+            "Journal of Geophysical Research: Planets, 106(E10), "
+            "23689–23722. Background on MOLA measurements, processing "
+            "and global topographic products.",
+            "https://doi.org/10.1029/2000JE001364"
+        ),
+        (
+            "Aharonson, O., Zuber, M. T., & Rothman, D. H. (2001). "
+            "Statistics of Mars' topography from the Mars Orbiter Laser "
+            "Altimeter: Slopes, correlations, and physical models.",
+            "Journal of Geophysical Research: Planets, 106(E10), "
+            "23723–23735. Relevant background for analysing Martian "
+            "terrain slopes and topography.",
+            "https://doi.org/10.1029/2000JE001403"
+        ),
+        (
+            "Yingst, R. A. et al. (2014). Terrain physical properties "
+            "derived from orbital data and the first 360 sols of Mars "
+            "Science Laboratory Curiosity rover observations in Gale Crater.",
+            "Journal of Geophysical Research: Planets. Describes combining "
+            "orbital observations and rover observations to characterize "
+            "terrain and identify traverse hazards in Gale Crater.",
+            "https://doi.org/10.1002/2013JE004605"
+        ),
+        (
+            "Huang, G., Yang, L., Cai, Y., & Zhang, D. (2021). "
+            "Terrain classification-based rover traverse planner with "
+            "kinematic constraints for Mars exploration.",
+            "Planetary and Space Science, article 105371. Research on "
+            "terrain classification and rover traverse planning using "
+            "a Hybrid A* approach.",
+            "https://doi.org/10.1016/j.pss.2021.105371"
+        ),
+        (
+            "Terrain-Aware Path Planning and Map Update for Mars Sample "
+            "Return Mission (2020).",
+            "IEEE Robotics and Automation Letters, 5(4), 5181–5188. "
+            "Discusses terrain-aware route planning and updating local "
+            "maps as a rover gathers new information.",
+            "https://doi.org/10.1109/LRA.2020.3005123"
+        ),
+    ]
+
+    for i, (citation, relevance, url) in enumerate(papers, 1):
+        with st.container(border=True):
+            st.markdown(f"**{i}. {citation}**")
+            st.write(relevance)
+            st.markdown(f"[Read paper / DOI]({url})")
+
+    # -----------------------------------------------------
+    # STUDY SITE
+    # -----------------------------------------------------
+    st.write("")
+    st.markdown("### 3. Study site")
+
+    kpi_row([
+        ("Target", "Gale Crater", "Mars"),
+        ("Reference latitude", f"{GALE_LAT:.1f}°", "South"),
+        ("Reference longitude", f"{GALE_LON:.1f}°E", "East"),
+    ])
+
+    note(
+        "Data-use note: MOLA is the only named mission dataset directly "
+        "loaded by the current terrain-processing code. HiRISE, CTX, "
+        "THEMIS, CRISM, REMS and RAD are listed as complementary scientific "
+        "sources for future validation and added hazard layers. If you "
+        "manually add images to the Surface Datasets folders, record the "
+        "exact product ID, archive URL, processing level and access date "
+        "for each file before presenting it as a sourced dataset."
+    )
+
+
+# =========================================================
+# PAGE ROUTING
+# =========================================================
 PAGE_FUNCTIONS = {
-    "Start Here": page_start, "Terrain Maps": page_maps, "3D Terrain": page_3d, "Route Planner": page_route,
-    "Safety & EVA": page_safety, "Image Gallery": page_gallery, "Data & Method": page_data,
+    "Start Here": page_start,
+    "Terrain Maps": page_maps,
+    "3D Terrain": page_3d,
+    "Route Planner": page_route,
+    "Safety & EVA": page_safety,
+    "Surface Datasets": page_datasets,
+    "Mission Reference Library": page_reference_library,
 }
+
 PAGE_FUNCTIONS[page]()
 
-st.markdown('<div class="footer">MARS EXPLORER | Preliminary terrain-based mission planning prototype</div>',
-            unsafe_allow_html=True)
+st.markdown(
+    '<div class="footer">MARS EXPLORER | '
+    'Preliminary terrain-based mission planning prototype</div>',
+    unsafe_allow_html=True
+)
