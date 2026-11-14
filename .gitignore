@@ -1,0 +1,10 @@
+_pycache_/
+*.pyc
+.venv/
+venv/
+.env
+.DS_Store
+.vscode/
+.venv-old/
+app_backup.py
+.streamlit/secrets.toml
